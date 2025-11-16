@@ -1,0 +1,802 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Catan Game Tracker</title>
+<style>
+  :root{
+    --accent:#3b82f6;
+    --muted:#6b7280;
+    --card-bg:#ffffff;
+    --page-bg:#f3f4f6;
+    --border:#e5e7eb;
+    --good:#16a34a;
+    --bad:#dc2626;
+    --dark:#111827;
+    --touch-pad:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page-bg);color:var(--dark);font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial; padding:12px;}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  h1{margin:0;font-size:18px}
+  .muted{color:var(--muted);font-size:13px}
+  .tabs{display:flex;gap:6px;margin-bottom:10px}
+  .tab{padding:10px 14px;border-radius:10px;background:#fff;border:1px solid var(--border);cursor:pointer;font-weight:600}
+  .tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .layout{display:flex;gap:12px}
+  .leftCard{width:320px;min-width:240px}
+  .card{background:var(--card-bg);border:1px solid var(--border);border-radius:10px;padding:12px;box-shadow:0 1px 0 rgba(0,0,0,0.03)}
+  .players-list-vertical{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+  .player-row{display:flex;align-items:center;gap:8px}
+  .player-pill{display:flex;align-items:center;gap:8px;padding:8px;border-radius:10px;border:1px solid var(--border);background:#fff}
+  .player-pill input[type="text"]{border:none;background:transparent;outline:none;font-weight:700}
+  .players-editor{display:flex;gap:6px;align-items:center;margin-top:8px;flex-wrap:wrap}
+  .controls{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+  button{cursor:pointer;border:none;background:var(--accent);color:white;padding:10px 12px;border-radius:10px;font-weight:700;min-height:44px;min-width:44px}
+  button.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+  button.bad{background:var(--bad)}
+  .table-wrap{border-radius:8px;border:1px solid var(--border);overflow:auto;max-height:420px;margin-top:8px;background:#fff}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{padding:10px;border-bottom:1px solid var(--border);text-align:left}
+  th{background:#fafafa;position:sticky;top:0;z-index:2}
+  .horizontal-players{display:flex;gap:12px;align-items:stretch;padding:8px 0}
+  .player-card{flex:1;min-width:110px;background:#fff;border:1px solid var(--border);padding:12px;border-radius:10px;text-align:center;cursor:pointer;display:flex;flex-direction:column;gap:8px;align-items:center}
+  .player-card.selected{outline:3px solid rgba(59,130,246,0.15);box-shadow:0 6px 18px rgba(59,130,246,0.06)}
+  .player-card .name{font-weight:800;font-size:15px}
+  .player-card .tot{font-size:13px;color:var(--muted)}
+  .resource-pills{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+  .resource-pill{padding:6px 8px;border-radius:999px;background:#f8fafc;border:1px solid var(--border);min-width:72px;text-align:center;font-weight:700}
+  .resource-pill small{display:block;font-weight:600;color:var(--muted);font-size:12px}
+  .resource-grid{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;justify-content:center}
+  .res-btn{padding:12px 16px;border-radius:12px;border:1px solid var(--border);background:#fff;color:var(--dark);cursor:pointer;font-weight:700;min-width:120px}
+  .res-btn.add{background:linear-gradient(#ecf9ff,#fff);border-color:#cfeffd}
+  .res-btn.sub{background:linear-gradient(#f7f7f9,#f0f0f3);border-color:#e5e7eb}
+  .res-btn:active{transform:translateY(1px)}
+  .res-btn svg{width:16px;height:16px}
+  .muted-block{background:#f8fafc;padding:8px;border-radius:8px;border:1px solid var(--border);margin-top:8px}
+  .badge{font-size:12px;padding:6px 10px;border-radius:8px;background:#f3f4f6;border:1px solid var(--border);font-weight:700}
+  .applied-badge{font-size:11px;padding:6px 8px;border-radius:8px;background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3}
+  /* Trade modal */
+  .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:100}
+  .modal.show{display:flex}
+  .overlay{position:absolute;inset:0;background:rgba(0,0,0,0.35)}
+  .dialog{position:relative;background:#fff;padding:14px;border-radius:12px;min-width:760px;max-width:95%;z-index:101;max-height:86vh;overflow:auto}
+  .trade-columns{display:flex;gap:12px}
+  .trade-panel{flex:1;border:1px solid var(--border);padding:8px;border-radius:8px;background:#fff}
+  .select-list{display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto}
+  .select-item{display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;border:1px solid transparent;cursor:pointer}
+  .select-item:hover{background:#f8fafc}
+  .select-item.disabled{opacity:0.45;pointer-events:none;background:#fafafa}
+  .select-item.selected{background:linear-gradient(#e6f0ff,#fff);border-color:#cfe0ff}
+  .resource-row{display:flex;align-items:center;justify-content:space-between;padding:8px;border-radius:8px;border:1px solid transparent;cursor:pointer}
+  .resource-row:hover{background:#f8fafc}
+  .resource-row.selected{background:#e6f9f0;border-color:#9ee6b8}
+  .resource-name{font-weight:700}
+  .num-buttons{display:flex;gap:6px}
+  .num-button{padding:6px 8px;border-radius:8px;border:1px solid var(--border);min-width:36px;background:#fff;cursor:pointer;font-weight:700}
+  .num-button.selected{background:#10b981;color:#fff;border-color:#10b981}
+  /* make unselected number buttons more visible */
+  .num-button{color:var(--dark)}
+  .dice-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .dice-btn{padding:6px 10px;border-radius:8px;border:1px solid var(--border);cursor:pointer;background:#dbeafe;color:#075985;font-weight:800}
+  .dice-btn.selected{background:#075985;color:#fff}
+  .dice-btn.seven{background:#fde68a;color:#92400e}
+  .dice-btn.seven.selected{background:#f59e0b;color:#fff}
+  .big-number{font-size:16px;font-weight:800}
+  /* number control for roll modal */
+  .num-control{display:flex;align-items:center;gap:8px;justify-content:center}
+  .num-control button{padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:#fff;font-weight:800;min-width:44px}
+  .num-control input{width:56px;text-align:center;font-weight:800;padding:8px;border-radius:8px;border:1px solid var(--border)}
+  /* roll modal plus = red, minus = blue */
+  .num-control button.inc{background:var(--bad);color:#fff;border-color:var(--bad)}
+  .num-control button.dec{background:var(--accent);color:#fff;border-color:var(--accent)}
+  /* responsive */
+  @media (max-width:980px){
+    .layout{flex-direction:column}
+    .leftCard{width:100%}
+    .dialog{min-width:90%}
+    .horizontal-players{overflow:auto}
+    .player-card{min-width:160px}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚒️ Catan Game Tracker</h1>
+  <div class="muted">Touch-friendly · Local only · Editable</div>
+  <div style="margin-left:auto;display:flex;gap:8px">
+    <button id="openTradeBtn" class="ghost">Trade</button>
+  </div>
+</header>
+
+<div class="tabs" role="tablist">
+  <div id="tabGame" class="tab active" role="tab">Game View</div>
+  <div id="tabTrans" class="tab" role="tab">Transactions</div>
+</div>
+
+<div class="layout">
+  <!-- left column: players editor -->
+  <div class="leftCard">
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-weight:800">Players</div>
+          <div class="muted">Edit names & colors. Add / remove players.</div>
+        </div>
+        <div>
+          <button id="addPlayerBtn" style="min-width:90px">+ Player</button>
+        </div>
+      </div>
+
+      <div id="playersList" class="players-list-vertical"></div>
+
+      <div class="players-editor">
+        <button id="exportBtn" class="ghost">Export</button>
+        <button id="importBtn" class="ghost">Import</button>
+        <input id="fileInput" type="file" accept="application/json" style="display:none" />
+      </div>
+
+      <div style="margin-top:10px" class="controls">
+        <button id="resetBtn" class="ghost">Reset</button>
+        <button id="recomputeBtn" class="ghost">Recompute</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- right column: main content -->
+  <div style="flex:1">
+    <!-- Transactions view -->
+    <div id="viewTransactions" class="card" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-weight:800">Transactions</div>
+          <div class="muted">Ledger of all resource moves</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button id="tableAddTransactionBtn">+ Transaction</button>
+          <div class="badge" id="totalTransactions">Transactions: 0</div>
+          <div class="badge" id="totalCards">Total cards: 0</div>
+        </div>
+      </div>
+
+      <div class="table-wrap" style="margin-top:10px">
+        <table id="transactionsTable">
+          <thead><tr><th>#</th><th>Time</th><th>Player</th><th>Resource</th><th>Δ</th><th>Reason</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Game view -->
+    <div id="viewGame" class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-weight:800">Game</div>
+          <div class="muted">Quick add/subtract and rolls</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="badge" id="totalRolls">Rolls: 0</div>
+          <div class="badge" id="totalPlayers">Players: 0</div>
+        </div>
+      </div>
+
+      <!-- players strip -->
+      <div id="playerStrip" class="horizontal-players" style="margin-top:12px"></div>
+
+      <!-- selected player controls -->
+      <div id="selectedControls" style="margin-top:12px;display:none">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="font-weight:800" id="selectedName"></div>
+          <div class="muted" id="selectedTotal"></div>
+        </div>
+
+        <div style="margin-top:12px">
+          <div style="font-weight:700;margin-bottom:6px">Add resource</div>
+          <div id="addResGrid" class="resource-grid"></div>
+        </div>
+
+        <div style="margin-top:12px">
+          <div style="font-weight:700;margin-bottom:6px">Subtract resource</div>
+          <div id="subResGrid" class="resource-grid"></div>
+        </div>
+      </div>
+
+      <!-- Rolls -->
+      <div style="margin-top:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-weight:800">Rolls</div>
+            <div class="muted">Templates and instances</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button id="tableAddRollBtn">+ Roll</button>
+            <button id="tableTurnBtn" class="ghost">+ Turn (quick)</button>
+          </div>
+        </div>
+
+        <div class="table-wrap" style="margin-top:10px">
+          <table id="rollsTable">
+            <thead><tr><th>#</th><th>Time</th><th>Roll</th><th>Per-player summary</th><th>Instances</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Roll modal -->
+<div id="rollModal" class="modal" aria-hidden="true">
+  <div class="overlay" onclick="closeRollModal()"></div>
+  <div class="dialog">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div><strong id="rollModalTitle">New Roll</strong><div class="muted">Set dice and per-player amounts</div></div>
+      <div><button class="ghost" onclick="closeRollModal()">Close</button></div>
+    </div>
+
+    <div style="margin-top:10px">
+      <div style="font-weight:700">Choose dice (2–12)</div>
+      <div id="diceSelector" class="dice-row"></div>
+    </div>
+
+    <div id="rollDistContainer" style="margin-top:12px;"></div>
+
+    <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+      <label style="font-weight:600"><input id="modalCreateTransactions" type="checkbox"> Create transactions immediately on save</label>
+      <input id="modalComment" type="text" placeholder="Comment (optional)" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border)" />
+      <button id="saveRollBtn">Save Roll</button>
+    </div>
+  </div>
+</div>
+
+<!-- Turn modal -->
+<div id="turnModal" class="modal" aria-hidden="true">
+  <div class="overlay" onclick="closeTurnModal()"></div>
+  <div class="dialog">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div><strong>Quick Turn</strong><div class="muted">Per-player quick entries</div></div>
+      <div><button class="ghost" onclick="closeTurnModal()">Close</button></div>
+    </div>
+
+    <div style="margin-top:10px">
+      <label>Dice value: <input id="turnDice" type="number" min="2" max="12" value="8" style="padding:8px;border-radius:8px;border:1px solid var(--border)" /></label>
+    </div>
+
+    <div id="turnDistContainer" style="margin-top:12px;"></div>
+    <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+      <input id="turnComment" type="text" placeholder="Comment (optional)" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border)" />
+      <button id="saveTurnBtn">Apply Turn</button>
+    </div>
+  </div>
+</div>
+
+<!-- Trade modal -->
+<div id="tradeModal" class="modal" aria-hidden="true">
+  <div class="overlay" onclick="closeTradeModal()"></div>
+  <!-- make this dialog non-scrolling so the top Close button is unnecessary -->
+  <div class="dialog" style="max-height:none;overflow:visible">
+    <div style="display:flex;align-items:center;justify-content:flex-start">
+      <div><strong>Make a Trade</strong><div class="muted">Choose receiver, giver, and resources</div></div>
+    </div>
+
+    <div style="margin-top:12px" class="trade-columns">
+      <div class="trade-panel">
+        <div style="font-weight:800">Receiver — gets</div>
+        <div id="tradeRecvPlayers" class="select-list" style="margin-top:8px"></div>
+        <div style="margin-top:8px">
+          <div style="font-weight:700">Resources (tap to add)</div>
+          <div id="tradeRecvResources" style="margin-top:8px;display:flex;flex-direction:column;gap:8px"></div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px">
+        <div style="font-weight:700">gets</div>
+        <div style="font-weight:700">from</div>
+      </div>
+
+      <div class="trade-panel">
+        <div style="font-weight:800">Giver — gives / for</div>
+        <div id="tradeGivePlayers" class="select-list" style="margin-top:8px"></div>
+        <div style="margin-top:8px">
+          <div style="font-weight:700">Resources (tap to give)</div>
+          <div id="tradeGiveResources" style="margin-top:8px;display:flex;flex-direction:column;gap:8px"></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+      <button class="ghost" onclick="closeTradeModal()">Cancel</button>
+      <button id="applyTradeBtn">Apply Trade</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Catan tracker with requested UI changes.
+   Keys: catan_players, catan_transactions, catan_rolls
+*/
+
+const RESOURCES = ["brick","lumber","wool","grain","ore"];
+const RESOURCE_LABEL = {brick:"Brick",lumber:"Lumber",wool:"Wool",grain:"Grain",ore:"Ore"};
+const LS_PLAYERS = "catan_players";
+const LS_TRANSACTIONS = "catan_transactions";
+const LS_ROLLS = "catan_rolls";
+
+function uid(prefix="id"){ return prefix + "_" + Date.now().toString(36) + "_" + Math.floor(Math.random()*9999).toString(36); }
+function loadJSON(k, fallback){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):fallback; }catch(e){console.error(e);return fallback;} }
+function saveJSON(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
+function saveAll(){ saveJSON(LS_PLAYERS, players); saveJSON(LS_TRANSACTIONS, transactions); saveJSON(LS_ROLLS, rolls); }
+
+function defaultPlayers(){
+  return [
+    {id:uid("p"), name:"Alice", color:"#ef4444"},
+    {id:uid("p"), name:"Bob", color:"#f59e0b"},
+    {id:uid("p"), name:"Carol", color:"#10b981"},
+    {id:uid("p"), name:"Dave", color:"#3b82f6"}
+  ];
+}
+
+let players = loadJSON(LS_PLAYERS, defaultPlayers());
+let transactions = loadJSON(LS_TRANSACTIONS, []);
+let rolls = loadJSON(LS_ROLLS, []);
+let selectedPlayerId = null;
+
+// compute totals from transactions
+function computeTotals(){
+  const totals = {};
+  players.forEach(p=>{ totals[p.id] = {}; RESOURCES.forEach(r=>totals[p.id][r]=0); });
+  for(const t of transactions){
+    if(!totals[t.playerId]) continue;
+    if(!RESOURCES.includes(t.resource)) continue;
+    totals[t.playerId][t.resource] += Number(t.delta)||0;
+  }
+  return totals;
+}
+function totalPlayerCards(pid){ const totals = computeTotals(); return RESOURCES.reduce((s,r)=>s + (totals[pid]?.[r]||0), 0); }
+
+// update player name across UI without full re-render (keeps input focus)
+// (moved to top-level earlier)
+
+// Render left players list (editor)
+function renderPlayersList(){
+  const el = document.getElementById("playersList"); el.innerHTML="";
+  players.forEach((p, idx)=>{
+    const row = document.createElement("div"); row.className="player-row";
+    // make rows draggable for reordering
+    row.draggable = true;
+    row.dataset.playerId = p.id;
+    row.innerHTML = `
+      <div class="player-pill">
+        <div style="width:32px;height:22px;border-radius:6px;background:${p.color};border:1px solid var(--border)"></div>
+        <input data-player-name="${p.id}" value="${escapeHtml(p.name)}" />
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+          <button class="bad" data-action="remove">✕</button>
+        </div>
+      </div>
+    `;
+    el.appendChild(row);
+    const nameInput = row.querySelector(`[data-player-name="${p.id}"]`);
+    nameInput.addEventListener("input",(e)=>{ const pl = players.find(x=>x.id===p.id); if(pl){ pl.name = e.target.value; saveAll(); updatePlayerNameUI(p.id, pl.name); } });
+    // save on Enter and re-render while preserving caret/focus
+    nameInput.addEventListener("keydown", (e)=>{
+      if(e.key === "Enter"){
+        e.preventDefault(); const pl = players.find(x=>x.id===p.id); if(pl){ pl.name = nameInput.value; saveAll(); const selStart = nameInput.selectionStart; const selEnd = nameInput.selectionEnd; renderAll(); const newInput = document.querySelector(`[data-player-name="${p.id}"]`); if(newInput){ newInput.focus(); try{ newInput.setSelectionRange(selStart, selEnd); }catch(err){} } }
+      }
+    });
+    // color picker on the color swatch
+    row.querySelector('.player-pill > div').addEventListener("click", ()=>{ const inp=document.createElement('input'); inp.type='color'; inp.value=p.color||'#888888'; inp.addEventListener('input', ev=>{ p.color=ev.target.value; saveAll(); renderAll(); }); inp.click(); });
+    // remove button
+    row.querySelector('[data-action="remove"]').addEventListener("click", ()=>{ if(!confirm("Remove player and their transactions?")) return; players = players.filter(x=>x.id!==p.id); transactions = transactions.filter(t=>t.playerId!==p.id); rolls = rolls.map(r=>({ ...r, distributions:(r.distributions||[]).filter(d=>d.playerId!==p.id) })).filter(r=> (r.distributions||[]).length>0 || r.comment ); if(selectedPlayerId===p.id) selectedPlayerId=null; saveAll(); renderAll(); });
+
+    // drag handlers for reordering
+    row.addEventListener('dragstart', (e)=>{ e.dataTransfer.setData('text/plain', p.id); e.dataTransfer.effectAllowed='move'; row.classList.add('dragging'); });
+    row.addEventListener('dragend', ()=>{ row.classList.remove('dragging'); });
+    row.addEventListener('dragover', (e)=>{ e.preventDefault(); const dragging = document.querySelector('.player-row.dragging'); if(!dragging || dragging === row) return; const bounding = row.getBoundingClientRect(); const offset = e.clientY - bounding.top; const parent = row.parentNode; if(offset < bounding.height/2) parent.insertBefore(dragging, row); else parent.insertBefore(dragging, row.nextSibling); });
+    row.addEventListener('drop', (e)=>{ e.preventDefault(); // rebuild players order from DOM
+      const ids = Array.from(document.querySelectorAll('#playersList .player-row')).map(r=>r.dataset.playerId);
+      players = ids.map(id => players.find(p=>p.id===id)).filter(Boolean);
+      saveAll(); renderAll();
+    });
+  });
+}
+
+// Render horizontal player strip (includes per-resource summary)
+function renderPlayerStrip(){
+  const strip = document.getElementById("playerStrip"); strip.innerHTML="";
+  const totals = computeTotals();
+  players.forEach(p=>{
+    const card = document.createElement("div"); card.className="player-card";
+    card.dataset.playerId = p.id;
+    if(selectedPlayerId===p.id) card.classList.add("selected");
+    const pillsHtml = RESOURCES.map(r=>`<div class="resource-pill"><div class="big-number">${totals[p.id][r]}</div><small>${RESOURCE_LABEL[r]}</small></div>`).join('');
+    card.innerHTML = `
+      <div style="width:36px;height:18px;border-radius:6px;background:${p.color};border:1px solid var(--border)"></div>
+      <div class="name">${escapeHtml(p.name)}</div>
+      <div class="tot">${totalPlayerCards(p.id)} cards</div>
+      <div class="resource-pills">${pillsHtml}</div>
+      
+    `;
+    strip.appendChild(card);
+
+    card.addEventListener("click",(e)=>{
+      if(e.target && (e.target.dataset.action==='edit' || e.target.dataset.action==='del')) return; // ignore inner buttons
+      selectedPlayerId = p.id; renderAll();
+    });
+  // edit/delete removed in the UI — use the Players editor on the left to edit or remove players
+  });
+
+// update player name across UI without full re-render (keeps input focus)
+function updatePlayerNameUI(playerId, newName){
+  // player strip
+  const nameEl = document.querySelector(`.player-card[data-player-id="${playerId}"] .name`);
+  if(nameEl) nameEl.innerText = newName;
+  // transactions table options
+  document.querySelectorAll(`#transactionsTable option[value="${playerId}"]`).forEach(opt=> opt.textContent = newName);
+  // roll summaries inline
+  document.querySelectorAll(`.roll-player-name[data-player-id="${playerId}"]`).forEach(el=> el.textContent = newName);
+  // selected player area
+  if(selectedPlayerId === playerId){ const selName = document.getElementById('selectedName'); if(selName) selName.innerText = newName; }
+  // players list input is already updated by user typing
+}
+
+  // Selected controls
+  const selArea = document.getElementById("selectedControls");
+  if(!selectedPlayerId){ selArea.style.display="none"; return; }
+  selArea.style.display="block";
+  const sel = players.find(x=>x.id===selectedPlayerId);
+  document.getElementById("selectedName").innerText = sel.name;
+  document.getElementById("selectedTotal").innerText = `${totalPlayerCards(sel.id)} total cards`;
+
+  // Add/Sub grids
+  const addGrid = document.getElementById("addResGrid"); const subGrid = document.getElementById("subResGrid");
+  addGrid.innerHTML=""; subGrid.innerHTML="";
+  RESOURCES.forEach(res=>{
+    const b = document.createElement("button"); b.className="res-btn add"; b.innerText = `+ ${RESOURCE_LABEL[res]}`; b.addEventListener("click", ()=>{ makeTransaction(sel.id, res, 1, `Manual +1 ${RESOURCE_LABEL[res]}`); });
+    addGrid.appendChild(b);
+    const sb = document.createElement("button"); sb.className="res-btn sub"; sb.innerText = `− ${RESOURCE_LABEL[res]}`; sb.addEventListener("click", ()=>{ makeTransaction(sel.id, res, -1, `Manual −1 ${RESOURCE_LABEL[res]}`); });
+    subGrid.appendChild(sb);
+  });
+}
+
+// Make transaction helper
+function makeTransaction(playerId, resource, delta, reason=""){
+  transactions.push({ id: uid("tx"), timestamp: Date.now(), playerId, resource, delta, reason });
+  saveAll(); renderAll();
+}
+
+// Render transactions table
+function renderTransactionsTable(){
+  const tbody = document.querySelector("#transactionsTable tbody"); tbody.innerHTML="";
+  transactions.slice().reverse().forEach((t, idxRev)=>{
+    const idx = transactions.length - idxRev;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${idx}</td>
+      <td>${new Date(t.timestamp).toLocaleString()}</td>
+      <td><select data-field="playerId">${players.map(p=>`<option value="${p.id}" ${p.id===t.playerId?'selected':''}>${escapeHtml(p.name)}</option>`).join('')}</select></td>
+      <td><select data-field="resource">${RESOURCES.map(r=>`<option value="${r}" ${r===t.resource?'selected':''}>${RESOURCE_LABEL[r]}</option>`).join('')}</select></td>
+      <td><input data-field="delta" type="number" value="${Number(t.delta)}" style="width:80px;padding:8px;border-radius:8px;border:1px solid var(--border)" /></td>
+      <td><input data-field="reason" type="text" value="${escapeHtml(t.reason||'')}" style="padding:8px;border-radius:8px;border:1px solid var(--border)" /></td>
+      <td style="display:flex;gap:8px"><button data-action="save" class="ghost">Save</button><button data-action="delete" class="bad">Del</button></td>
+    `;
+    tbody.appendChild(tr);
+    tr.querySelector('[data-action="delete"]').addEventListener("click", ()=>{ if(!confirm("Delete transaction?")) return; transactions = transactions.filter(x=>x.id!==t.id); saveAll(); renderAll(); });
+    tr.querySelector('[data-action="save"]').addEventListener("click", ()=>{ const sel = tr.querySelector('select[data-field="playerId"]').value; const res = tr.querySelector('select[data-field="resource"]').value; const delta = Number(tr.querySelector('input[data-field="delta"]').value)||0; const reason = tr.querySelector('input[data-field="reason"]').value; const tx = transactions.find(x=>x.id===t.id); if(tx){ tx.playerId=sel; tx.resource=res; tx.delta=delta; tx.reason=reason; saveAll(); renderAll(); }});
+  });
+}
+
+// Rolls table
+function renderRollsTable(){
+  const tbody = document.querySelector("#rollsTable tbody"); tbody.innerHTML="";
+  rolls.slice().reverse().forEach((r, idxRev)=>{
+    const idx = rolls.length - idxRev;
+    const instCount = Array.isArray(r.instances)? r.instances.length : 0;
+    const hasDist = Array.isArray(r.distributions) && r.distributions.some(d=>RESOURCES.some(res=>Number(d.resources?.[res]||0)!==0));
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${idx}</td>
+      <td>${new Date(r.timestamp).toLocaleString()}</td>
+      <td>${ hasDist ? `<button class="ghost" data-action="applyRoll" data-roll="${r.id}">Roll ${r.dice}</button>` : `<button class="ghost" disabled>Roll ${r.dice}</button>`}</td>
+      <td>${renderRollSummaryInline(r)}</td>
+      <td>${instCount>0? `<span class="applied-badge">${instCount}×</span>` : ""}</td>
+      <td style="display:flex;gap:8px"><button data-action="edit" class="ghost">Edit</button><button data-action="delete" class="bad">Delete</button></td>
+    `;
+    tbody.appendChild(tr);
+    if(hasDist) tr.querySelector('[data-action="applyRoll"]').addEventListener("click", ()=> applyRollById(r.id));
+    tr.querySelector('[data-action="edit"]').addEventListener("click", ()=> openRollModal(r.id));
+    tr.querySelector('[data-action="delete"]').addEventListener("click", ()=>{ if(!confirm("Delete roll template? Existing transaction instances remain.") ) return; rolls = rolls.filter(x=>x.id!==r.id); saveAll(); renderAll(); });
+  });
+}
+function renderRollSummaryInline(r){
+  const byPlayer = {}; (r.distributions||[]).forEach(d=>{ const sum = RESOURCES.reduce((s,res)=>s + (Number(d.resources?.[res]||0)),0); byPlayer[d.playerId] = (byPlayer[d.playerId]||0) + sum; });
+  return players.map(p=>`<div style="display:inline-block;margin-right:10px"><strong><span class="roll-player-name" data-player-id="${p.id}">${escapeHtml(p.name)}</span></strong>: ${byPlayer[p.id]||0}</div>`).join('');
+}
+
+// Apply roll: creates a new instance each click
+function applyRollById(rollId){
+  const roll = rolls.find(r=>r.id===rollId); if(!roll) return alert("Roll not found.");
+  if(!Array.isArray(roll.distributions) || roll.distributions.length===0) return alert("No stored distributions.");
+  const instanceId = uid("ri");
+  for(const d of roll.distributions){
+    for(const res of RESOURCES){
+      const amount = Number(d.resources?.[res]||0); if(!amount) continue;
+      transactions.push({ id: uid("tx"), timestamp: Date.now(), playerId: d.playerId, resource: res, delta: amount, reason: `Roll ${roll.dice}` + (roll.comment?` — ${roll.comment}`:""), rollId: roll.id, rollInstanceId: instanceId });
+    }
+  }
+  roll.instances = roll.instances || []; roll.instances.push({ id: instanceId, timestamp: Date.now() });
+  saveAll(); renderAll();
+}
+
+// Roll modal: new UI with dice selector & increment controls per-player per-resource
+let editingRollId = null;
+function openRollModal(rollId=null){
+  editingRollId = rollId; document.getElementById("rollModal").classList.add("show");
+  const container = document.getElementById("rollDistContainer"); container.innerHTML="";
+  const diceSelector = document.getElementById("diceSelector"); diceSelector.innerHTML="";
+  const createTx = document.getElementById("modalCreateTransactions"); const comment = document.getElementById("modalComment"); const title = document.getElementById("rollModalTitle");
+
+  let r = null;
+  if(rollId){ r = rolls.find(x=>x.id===rollId); title.innerText = `Edit Roll ${r.dice}`; comment.value = r.comment||""; } else { title.innerText = "New Roll"; comment.value = ""; }
+
+  // dice buttons 2..12
+  const currentDice = r ? Number(r.dice)||8 : 8;
+  for(let d=2; d<=12; d++){
+    const b = document.createElement("button"); b.className="dice-btn"; b.innerText = d; b.dataset.dice = d;
+    if(d===7) b.classList.add("seven");
+    if(d===currentDice) b.classList.add("selected");
+    b.addEventListener("click", ()=>{ diceSelector.querySelectorAll(".dice-btn").forEach(x=>x.classList.remove("selected")); b.classList.add("selected"); });
+    diceSelector.appendChild(b);
+  }
+
+  // per-player controls
+  players.forEach(p=>{
+    const block = document.createElement("div"); block.style.borderBottom="1px dashed var(--border)"; block.style.padding="10px 0";
+    block.innerHTML = `<div style="display:flex;align-items:center;gap:8px"><div style="width:28px;height:18px;border-radius:6px;background:${p.color};border:1px solid var(--border)"></div><div style="font-weight:800">${escapeHtml(p.name)}</div></div>`;
+    // resource controls grid
+    const grid = document.createElement("div"); grid.style.display="grid"; grid.style.gridTemplateColumns = "repeat(5,1fr)"; grid.style.gap="8px"; grid.style.marginTop="10px";
+    const distSource = r ? (r.distributions||[]).find(d=>d.playerId===p.id) : null;
+    RESOURCES.forEach(res=>{
+      const startVal = distSource ? Number(distSource.resources?.[res]||0) : 0;
+      const cell = document.createElement("div"); cell.style.display="flex"; cell.style.flexDirection="column"; cell.style.alignItems="center"; cell.style.gap="8px";
+      cell.innerHTML = `<div style="font-weight:700">${RESOURCE_LABEL[res]}</div>
+        <div class="num-control">
+          <button type="button" class="dec" aria-label="decrease">−</button>
+          <input type="number" class="roll-num" min="-99" max="999" value="${startVal}" data-player="${p.id}" data-resource="${res}" />
+          <button type="button" class="inc" aria-label="increase">+</button>
+        </div>`;
+      grid.appendChild(cell);
+      const inc = cell.querySelector('.inc'); const dec = cell.querySelector('.dec'); const inp = cell.querySelector('.roll-num');
+      inc.addEventListener("click", ()=>{ inp.value = Number(inp.value||0) + 1; });
+      dec.addEventListener("click", ()=>{ inp.value = Number(inp.value||0) - 1; });
+      inp.addEventListener("input", ()=>{ /* keep numeric */ });
+    });
+    block.appendChild(grid);
+    container.appendChild(block);
+  });
+
+  // createTransactions default unchecked for edit/new
+  createTx.checked = false;
+
+  document.getElementById("saveRollBtn").onclick = ()=>{
+    const selectedDiceBtn = diceSelector.querySelector(".dice-btn.selected");
+    const dice = selectedDiceBtn ? Number(selectedDiceBtn.dataset.dice) : 8;
+    const comm = comment.value;
+    const distributions = [];
+    document.querySelectorAll('.roll-num').forEach(inp=>{
+      const pid = inp.dataset.player; const res = inp.dataset.resource; const val = Number(inp.value) || 0;
+      let row = distributions.find(d=>d.playerId===pid);
+      if(!row){ row={playerId:pid,resources:{}}; distributions.push(row); }
+      row.resources[res] = val;
+    });
+    // drop players with all zeros
+    const cleaned = distributions.map(d=>{ const sum = RESOURCES.reduce((s,r)=>s + Math.abs(Number(d.resources[r]||0)),0); return {...d, _sum: sum}; }).filter(d=>d._sum>0).map(d=>{ delete d._sum; return d; });
+
+    if(editingRollId){
+      const old = rolls.find(x=>x.id===editingRollId);
+      if(!old) { alert("Roll not found"); closeRollModal(); return; }
+      old.dice = dice; old.distributions = cleaned; old.comment = comm;
+      if(createTx.checked){
+        const instanceId = uid("ri"); createTransactionsFromRoll(old, instanceId); old.instances = old.instances||[]; old.instances.push({id:instanceId,timestamp:Date.now()});
+      }
+    } else {
+      const newRoll = { id: uid("r"), timestamp: Date.now(), dice, distributions: cleaned, createTransactions: createTx.checked, comment: comm, instances: [] };
+      rolls.push(newRoll);
+      if(createTx.checked){ const instanceId = uid("ri"); createTransactionsFromRoll(newRoll, instanceId); newRoll.instances.push({id:instanceId,timestamp:Date.now()}); }
+    }
+    saveAll(); closeRollModal(); renderAll();
+  };
+}
+
+function closeRollModal(){ document.getElementById("rollModal").classList.remove("show"); editingRollId=null; }
+
+// Turn modal (quick apply)
+function openTurnModal(prefill=8){
+  document.getElementById("turnModal").classList.add("show");
+  document.getElementById("turnDice").value = prefill;
+  document.getElementById("turnComment").value = "";
+  const container = document.getElementById("turnDistContainer"); container.innerHTML="";
+  players.forEach(p=>{
+    const block = document.createElement("div"); block.style.borderBottom="1px dashed var(--border)"; block.style.padding="8px 0";
+    block.innerHTML = `<div style="display:flex;align-items:center;gap:8px"><div style="width:28px;height:18px;border-radius:6px;background:${p.color};border:1px solid var(--border)"></div><div style="font-weight:800">${escapeHtml(p.name)}</div></div>
+      <div style="margin-top:8px;display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
+        ${RESOURCES.map(res=>`<label style="font-size:12px"><div class="muted">${RESOURCE_LABEL[res]}</div><input data-player="${p.id}" data-resource="${res}" type="number" value="0" class="small-input" style="width:72px;padding:8px;border-radius:8px;border:1px solid var(--border)" /></label>`).join('')}
+      </div>`;
+    container.appendChild(block);
+  });
+
+  document.getElementById("saveTurnBtn").onclick = ()=>{
+    const dice = Number(document.getElementById("turnDice").value) || 0;
+    const comm = document.getElementById("turnComment").value || "";
+    const distributions = [];
+    players.forEach(p=>{
+      const row = { playerId: p.id, resources: {} }; let sumAbs=0;
+      RESOURCES.forEach(res=>{ const inp = container.querySelector(`input[data-player="${p.id}"][data-resource="${res}"]`); const v = inp?Number(inp.value)||0:0; row.resources[res]=v; sumAbs+=Math.abs(v); });
+      if(sumAbs>0) distributions.push(row);
+    });
+    const newRoll = { id: uid("r"), timestamp: Date.now(), dice, distributions, createTransactions:true, comment:comm, instances: [] };
+    rolls.push(newRoll); const instanceId = uid("ri"); createTransactionsFromRoll(newRoll, instanceId); newRoll.instances.push({id:instanceId,timestamp:Date.now()});
+    saveAll(); closeTurnModal(); renderAll();
+  };
+}
+function closeTurnModal(){ document.getElementById("turnModal").classList.remove("show"); }
+
+// create transactions from roll with instance id
+function createTransactionsFromRoll(roll, rollInstanceId = null){
+  const instance = rollInstanceId || uid("ri");
+  for(const d of roll.distributions || []){ for(const res of RESOURCES){ const amount = Number(d.resources?.[res]||0); if(!amount) continue; transactions.push({ id: uid("tx"), timestamp: Date.now(), playerId: d.playerId, resource: res, delta: amount, reason: `Roll ${roll.dice}` + (roll.comment?` — ${roll.comment}`:""), rollId: roll.id, rollInstanceId: instance }); } }
+  return instance;
+}
+
+/* Trade modal: resources first, green when selected, per-resource number pickers 1..5 */
+let tradeState = {
+  recvPlayerId: null,
+  givePlayerId: null,
+  recvSelections: {}, // resource -> count
+  giveSelections: {}
+};
+
+function openTradeModal(){
+  tradeState = { recvPlayerId:null, givePlayerId:null, recvSelections:{}, giveSelections:{} };
+  document.getElementById("tradeModal").classList.add("show");
+  renderTradeModal();
+}
+function closeTradeModal(){ document.getElementById("tradeModal").classList.remove("show"); }
+
+function renderTradeModal(){
+  // players lists
+  const recvList = document.getElementById("tradeRecvPlayers"); const giveList = document.getElementById("tradeGivePlayers");
+  recvList.innerHTML=""; giveList.innerHTML="";
+  players.forEach(p=>{
+    const ri = document.createElement("div"); ri.className="select-item"; ri.innerHTML = `<div style="width:28px;height:16px;border-radius:6px;background:${p.color};border:1px solid var(--border)"></div><div style="font-weight:700;margin-left:6px">${escapeHtml(p.name)}</div>`; recvList.appendChild(ri);
+    const gi = ri.cloneNode(true); giveList.appendChild(gi);
+
+    if(tradeState.givePlayerId === p.id) ri.classList.add("disabled");
+    if(tradeState.recvPlayerId === p.id) gi.classList.add("disabled");
+    if(tradeState.recvPlayerId === p.id) ri.classList.add("selected");
+    if(tradeState.givePlayerId === p.id) gi.classList.add("selected");
+
+    ri.addEventListener("click", ()=>{ tradeState.recvPlayerId = p.id; if(tradeState.givePlayerId === p.id) tradeState.givePlayerId = null; renderTradeModal(); });
+    gi.addEventListener("click", ()=>{ tradeState.givePlayerId = p.id; if(tradeState.recvPlayerId === p.id) tradeState.recvPlayerId = null; renderTradeModal(); });
+  });
+
+  // resources sections with per-resource number selectors
+  const recvRes = document.getElementById("tradeRecvResources"); const giveRes = document.getElementById("tradeGiveResources");
+  recvRes.innerHTML=""; giveRes.innerHTML="";
+  RESOURCES.forEach(res=>{
+    // receiver side
+    const rr = document.createElement("div"); rr.className="resource-row";
+    rr.innerHTML = `<div style="display:flex;gap:8px;align-items:center"><div class="resource-name">${RESOURCE_LABEL[res]}</div></div>
+      <div style="display:flex;gap:8px;align-items:center"><div class="muted">#</div><div class="num-buttons"></div></div>`;
+    recvRes.appendChild(rr);
+    const btns = rr.querySelector(".num-buttons");
+    for(let n=1;n<=5;n++){ const nb=document.createElement("button"); nb.className="num-button"; nb.innerText = n; nb.addEventListener("click", (e)=>{ e.stopPropagation(); tradeState.recvSelections[res]=n; renderTradeModal(); }); btns.appendChild(nb); }
+    rr.addEventListener("click", ()=>{ if(tradeState.recvSelections[res]) delete tradeState.recvSelections[res]; else tradeState.recvSelections[res] = 1; renderTradeModal(); });
+
+    // giver side
+    const gr = document.createElement("div"); gr.className="resource-row";
+    gr.innerHTML = `<div style="display:flex;gap:8px;align-items:center"><div class="resource-name">${RESOURCE_LABEL[res]}</div></div>
+      <div style="display:flex;gap:8px;align-items:center"><div class="muted">#</div><div class="num-buttons"></div></div>`;
+    giveRes.appendChild(gr);
+    const gbtns = gr.querySelector(".num-buttons");
+    for(let n=1;n<=5;n++){ const nb=document.createElement("button"); nb.className="num-button"; nb.innerText = n; nb.addEventListener("click", (e)=>{ e.stopPropagation(); tradeState.giveSelections[res]=n; renderTradeModal(); }); gbtns.appendChild(nb); }
+    gr.addEventListener("click", ()=>{ if(tradeState.giveSelections[res]) delete tradeState.giveSelections[res]; else tradeState.giveSelections[res] = 1; renderTradeModal(); });
+
+    // apply selected classes and show selected num highlight
+    if(tradeState.recvSelections[res]){ rr.classList.add("selected"); rr.querySelectorAll('.num-button').forEach(b=>{ b.classList.toggle('selected', Number(b.innerText)===tradeState.recvSelections[res]); }); } else { rr.classList.remove("selected"); rr.querySelectorAll('.num-button').forEach(b=>b.classList.remove('selected')); }
+    if(tradeState.giveSelections[res]){ gr.classList.add("selected"); gr.querySelectorAll('.num-button').forEach(b=>{ b.classList.toggle('selected', Number(b.innerText)===tradeState.giveSelections[res]); }); } else { gr.classList.remove("selected"); gr.querySelectorAll('.num-button').forEach(b=>b.classList.remove('selected')); }
+  });
+
+  // disable items where player not chosen
+  // also visually indicate if selected player same -> prevent
+  const applyBtn = document.getElementById("applyTradeBtn");
+  applyBtn.disabled = !(tradeState.recvPlayerId && tradeState.givePlayerId && (Object.keys(tradeState.recvSelections).length>0 || Object.keys(tradeState.giveSelections).length>0));
+  applyBtn.onclick = applyTrade;
+}
+
+// apply trade: create transactions from per-resource selections
+function applyTrade(){
+  if(!tradeState.recvPlayerId || !tradeState.givePlayerId) return alert("Choose both players.");
+  if(tradeState.recvPlayerId === tradeState.givePlayerId) return alert("Choose two different players.");
+  // receiver selected resources: receiver +n, giver -n
+  Object.entries(tradeState.recvSelections).forEach(([res, n])=>{
+    const count = Number(n)||0; if(!count) return;
+    transactions.push({ id: uid("tx"), timestamp: Date.now(), playerId: tradeState.recvPlayerId, resource: res, delta: count, reason: `Trade from ${getPlayerName(tradeState.givePlayerId)}` });
+    transactions.push({ id: uid("tx"), timestamp: Date.now(), playerId: tradeState.givePlayerId, resource: res, delta: -count, reason: `Trade to ${getPlayerName(tradeState.recvPlayerId)}` });
+  });
+  // giver selected resources: giver +n, receiver -n
+  Object.entries(tradeState.giveSelections).forEach(([res,n])=>{
+    const count = Number(n)||0; if(!count) return;
+    transactions.push({ id: uid("tx"), timestamp: Date.now(), playerId: tradeState.givePlayerId, resource: res, delta: count, reason: `Trade from ${getPlayerName(tradeState.recvPlayerId)}` });
+    transactions.push({ id: uid("tx"), timestamp: Date.now(), playerId: tradeState.recvPlayerId, resource: res, delta: -count, reason: `Trade to ${getPlayerName(tradeState.givePlayerId)}` });
+  });
+
+  saveAll(); closeTradeModal(); renderAll();
+}
+
+function getPlayerName(id){ const p=players.find(x=>x.id===id); return p? p.name : "(unknown)"; }
+
+// Wiring events
+document.getElementById("addPlayerBtn").addEventListener("click", ()=>{ players.push({ id: uid("p"), name: "Player " + (players.length+1), color: randomColor() }); saveAll(); renderAll(); });
+document.getElementById("tableAddTransactionBtn").addEventListener("click", ()=>{ if(players.length===0) return alert("Add players first"); transactions.push({ id: uid("tx"), timestamp: Date.now(), playerId: players[0].id, resource: RESOURCES[0], delta: 1, reason: "" }); saveAll(); renderAll(); });
+document.getElementById("tableAddRollBtn").addEventListener("click", ()=> openRollModal(null));
+document.getElementById("tableTurnBtn").addEventListener("click", ()=> openTurnModal(8));
+document.getElementById("resetBtn").addEventListener("click", ()=>{ if(!confirm("Clear all data?")) return; localStorage.removeItem(LS_PLAYERS); localStorage.removeItem(LS_TRANSACTIONS); localStorage.removeItem(LS_ROLLS); players = defaultPlayers(); transactions = []; rolls = []; selectedPlayerId=null; saveAll(); renderAll(); });
+document.getElementById("recomputeBtn").addEventListener("click", ()=> renderAll());
+document.getElementById("exportBtn").addEventListener("click", ()=>{ const blob=new Blob([JSON.stringify({players,transactions,rolls,exportedAt:new Date().toISOString()},null,2)],{type:"application/json"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="catan-export.json"; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); });
+document.getElementById("importBtn").addEventListener("click", ()=> document.getElementById("fileInput").click());
+document.getElementById("fileInput").addEventListener("change",(e)=>{ const f=e.target.files[0]; if(!f) return; const fr=new FileReader(); fr.onload=ev=>{ try{ const parsed=JSON.parse(ev.target.result); if(parsed.players && parsed.transactions && parsed.rolls){ if(!confirm("Replace current data?")) return; players=parsed.players; transactions=parsed.transactions; rolls=parsed.rolls; saveAll(); renderAll(); alert("Imported."); } else alert("Invalid structure."); }catch(err){ alert("Invalid JSON: "+err); } }; fr.readAsText(f); });
+
+document.getElementById("tabGame").addEventListener("click", ()=>{ document.getElementById("tabGame").classList.add("active"); document.getElementById("tabTrans").classList.remove("active"); document.getElementById("viewGame").style.display="block"; document.getElementById("viewTransactions").style.display="none"; });
+document.getElementById("tabTrans").addEventListener("click", ()=>{ document.getElementById("tabTrans").classList.add("active"); document.getElementById("tabGame").classList.remove("active"); document.getElementById("viewGame").style.display="none"; document.getElementById("viewTransactions").style.display="block"; });
+
+document.getElementById("openTradeBtn").addEventListener("click", ()=> openTradeModal());
+document.getElementById("applyTradeBtn").addEventListener("click", applyTrade);
+window.addEventListener("keydown",(e)=>{ if(e.key==="Escape"){ closeRollModal(); closeTurnModal(); closeTradeModal(); }});
+
+// helper to create transactions from roll within modal flows
+function createTransactionsFromRoll(roll, rollInstanceId=null){
+  return createTransactionsFromRollCore(roll, rollInstanceId);
+}
+function createTransactionsFromRollCore(roll, rollInstanceId=null){
+  const instance = rollInstanceId || uid("ri");
+  for(const d of roll.distributions || []){ for(const res of RESOURCES){ const amount = Number(d.resources?.[res]||0); if(!amount) continue; transactions.push({ id: uid("tx"), timestamp: Date.now(), playerId: d.playerId, resource: res, delta: amount, reason: `Roll ${roll.dice}` + (roll.comment?` — ${roll.comment}`:""), rollId: roll.id, rollInstanceId: instance }); } }
+  return instance;
+}
+
+// small helpers
+function randomColor(){ const vals=['#ef4444','#f97316','#f59e0b','#eab308','#84cc16','#10b981','#14b8a6','#06b6d4','#3b82f6','#7c3aed','#ec4899']; return vals[Math.floor(Math.random()*vals.length)]; }
+function escapeHtml(s){ return (s||"").toString().replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+// render all
+function renderAll(){
+  renderPlayersList();
+  renderPlayerStrip();
+  renderTransactionsTable();
+  renderRollsTable();
+  document.getElementById("totalTransactions").innerText = "Transactions: " + transactions.length;
+  document.getElementById("totalCards").innerText = "Total cards: " + transactions.reduce((s,t)=> s + (RESOURCES.includes(t.resource)? Number(t.delta)||0 : 0), 0);
+  document.getElementById("totalRolls").innerText = "Rolls: " + rolls.length;
+  document.getElementById("totalPlayers").innerText = "Players: " + players.length;
+}
+
+// init
+(function init(){
+  if(!players || players.length===0){ players = defaultPlayers(); saveAll(); }
+  if(!Array.isArray(transactions)) transactions = [];
+  if(!Array.isArray(rolls)) rolls = [];
+  renderAll();
+})();
+
+// expose some functions for inline buttons
+window.openRollModal = openRollModal;
+window.openTurnModal = openTurnModal;
+window.closeRollModal = closeRollModal;
+window.closeTurnModal = closeTurnModal;
+window.closeTradeModal = closeTradeModal;
+
+</script>
+</body>
+</html>
