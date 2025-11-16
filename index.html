@@ -99,6 +99,10 @@
     .horizontal-players{overflow:auto}
     .player-card{min-width:160px}
   }
+  /* make trade button text larger specifically */
+  #openTradeBtn{font-size:16px;padding:10px 16px;min-width:80px}
+  /* fullscreen button styling */
+  #fullscreenBtn{font-size:14px;padding:10px 12px;min-width:44px}
 </style>
 </head>
 <body>
@@ -107,6 +111,7 @@
   <h1>⚒️ Catan Game Tracker</h1>
   <div class="muted">Touch-friendly · Local only · Editable</div>
   <div style="margin-left:auto;display:flex;gap:8px">
+    <button id="fullscreenBtn" class="ghost">Fullscreen</button>
     <button id="openTradeBtn" class="ghost">Trade</button>
   </div>
 </header>
@@ -754,6 +759,57 @@ document.getElementById("tabTrans").addEventListener("click", ()=>{ document.get
 
 document.getElementById("openTradeBtn").addEventListener("click", ()=> openTradeModal());
 document.getElementById("applyTradeBtn").addEventListener("click", applyTrade);
+// Fullscreen toggle button
+const fsBtn = document.getElementById('fullscreenBtn');
+if(fsBtn){
+  fsBtn.addEventListener('click', ()=>{
+    if(!document.fullscreenElement){ document.documentElement.requestFullscreen().catch(()=>{}); }
+    else { document.exitFullscreen().catch(()=>{}); }
+  });
+  document.addEventListener('fullscreenchange', ()=>{
+    if(document.fullscreenElement){ fsBtn.innerText = 'Exit Fullscreen'; fsBtn.classList.add('bad'); }
+    else { fsBtn.innerText = 'Fullscreen'; fsBtn.classList.remove('bad'); }
+  });
+}
+// Wake Lock: keep screen on while this page is visible
+let wakeLock = null;
+let keepAwakeEnabled = true; // enabled by default: keep device awake while page is visible
+
+async function requestWakeLock(){
+  if(!keepAwakeEnabled) return;
+  try{
+    if('wakeLock' in navigator){
+      wakeLock = await navigator.wakeLock.request('screen');
+      // if released by system, try to re-request when possible
+      wakeLock.addEventListener('release', ()=>{ wakeLock = null; console.log('Wake lock released'); });
+      console.log('Wake lock acquired');
+    } else {
+      console.warn('Wake Lock API not supported in this browser.');
+    }
+  }catch(err){ console.warn('Failed to acquire wake lock:', err); wakeLock = null; }
+}
+
+async function releaseWakeLock(){
+  try{
+    if(wakeLock){ await wakeLock.release(); wakeLock = null; }
+  }catch(err){ console.warn('Failed to release wake lock', err); }
+}
+
+// Manage wake lock on visibility changes: acquire when visible, release when hidden
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible'){
+    requestWakeLock();
+  } else {
+    // page not visible -> release to allow device to sleep
+    releaseWakeLock();
+  }
+});
+
+// Ensure we acquire wake lock on first load if visible
+if(document.visibilityState === 'visible') requestWakeLock();
+
+// Release wake lock on unload
+window.addEventListener('pagehide', ()=>{ releaseWakeLock(); });
 window.addEventListener("keydown",(e)=>{ if(e.key==="Escape"){ closeRollModal(); closeTurnModal(); closeTradeModal(); }});
 
 // helper to create transactions from roll within modal flows
